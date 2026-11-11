@@ -1,0 +1,10 @@
+venv/
+.git/
+.gitignore
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+*.ipynb
+setup.bat
+README.md
+mlops_pipeline/resultados/
