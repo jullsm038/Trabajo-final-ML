@@ -1,0 +1,25 @@
+name: SonarCloud
+on:
+  push:
+    branches: [master]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  analisis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar librerias y correr pruebas
+        run: |
+          pip install pandas numpy scipy scikit-learn matplotlib seaborn joblib pytest pytest-cov fastapi pydantic
+          pytest --cov=mlops_pipeline --cov-report=xml
+      - name: Analisis de SonarCloud
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
