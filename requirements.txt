@@ -4,5 +4,12 @@ matplotlib
 seaborn
 scipy
 scikit-learn
+joblib
 openpyxl
 jupyter
+streamlit
+fastapi
+uvicorn
+pydantic
+pytest
+httpx
