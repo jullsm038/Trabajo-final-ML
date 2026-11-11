@@ -11,6 +11,12 @@ Proyecto final de Machine Learning. Modelo que predice si un cliente pagará su 
 4. Cómo ejecutar
 5. Hallazgos principales del EDA
 6. Modelos y justificación del mejor
+7. Monitoreo del modelo
+8. Resultados del monitoreo
+9. Aplicación de monitoreo (Streamlit)
+10. API de predicción y Docker
+11. Pruebas y calidad de código
+12. Pendientes
 
 ## 1. Caso de negocio
 Una entidad presta dinero y necesita saber qué clientes tienen más riesgo de **no pagar a tiempo**.
@@ -22,7 +28,10 @@ La base tiene 10.763 créditos y 23 variables. La variable a predecir es `Pago_a
 - `mlops_pipeline/comprension_eda.ipynb`: análisis exploratorio (partes 1 a 5).
 - `mlops_pipeline/ft_engineering.py`: limpieza, variables nuevas y pipeline de transformación.
 - `mlops_pipeline/model_training_evaluation.py`: entrena y compara modelos, guarda el mejor.
-- `mlops_pipeline/model_monitoring.py` y `model_deploy.py`: próximas entregas.
+- `mlops_pipeline/model_monitoring.py`: revisa si los datos cambian con el tiempo (drift) y genera alertas.
+- `mlops_pipeline/app_monitoreo.py`: tablero en Streamlit con el monitoreo.
+- `mlops_pipeline/model_deploy.py`: API (FastAPI) para predecir con el mejor modelo.
+- `Dockerfile`, `.dockerignore`, `sonar-project.properties` y la carpeta `tests/`.
 - `Base_de_datos.csv`, `requirements.txt`, `setup.bat`, `.gitignore`.
 
 ## 3. Instalación y entorno virtual
@@ -66,3 +75,58 @@ Se comparan 4 modelos con 80 % de los datos para entrenar y 20 % para evaluar. L
 - **Escalabilidad:** es el que entrena más rápido (menos de 1 segundo) y es el más simple de desplegar.
 - Limitación: la precisión es baja (0,08), así que marca muchos clientes buenos como riesgosos.
 - Con la variable `puntaje` todos los modelos dan 100 %, lo que confirma la fuga de datos.
+
+## 7. Monitoreo del modelo
+Un modelo se entrena con datos del pasado. Con el tiempo los datos nuevos pueden cambiar (**drift**)
+y el modelo puede fallar sin que nadie lo note. El archivo `mlops_pipeline/model_monitoring.py` compara
+los **3 primeros meses** (referencia) contra cada mes siguiente con cuatro pruebas:
+
+| Prueba | Para qué sirve | Alerta / crítico |
+|---|---|---|
+| PSI | Cambio en variables numéricas | 0,10 / 0,25 |
+| KS | Cambio en variables numéricas | 0,10 / 0,20 |
+| Jensen-Shannon | Distancia entre distribuciones (0 a 1) | - |
+| Chi-cuadrado | Cambio en variables de categorías | p-valor bajo |
+
+Los meses con menos de 100 registros no se analizan, porque el resultado no sería confiable.
+
+## 8. Resultados del monitoreo
+- Referencia: noviembre 2024 a enero 2025 (3.319 registros). Se analizan 12 meses (feb 2025 a ene 2026).
+- Variables en estado crítico: pasaron de 0 (feb 2025) a 9 (ene 2026).
+- La variable que más cambió fue `promedio_ingresos_datacredito` (PSI = 1,18).
+- También cambiaron las probabilidades y las predicciones del modelo.
+- **Recomendación: reentrenar el modelo con datos recientes.**
+
+![Drift en el tiempo](mlops_pipeline/resultados/drift_en_el_tiempo.png)
+![Histórico vs actual](mlops_pipeline/resultados/historico_vs_actual.png)
+
+## 9. Aplicación de monitoreo (Streamlit)
+Con el entorno activado:
+
+    cd mlops_pipeline
+    streamlit run app_monitoreo.py
+
+Muestra el resumen, el mapa de calor del PSI, el detalle de cada mes y las alertas.
+Una copia del tablero está en `mlops_pipeline/resultados/Monitoreo del modelo.pdf`.
+
+## 10. API de predicción y Docker
+API con las rutas `/predict` (un crédito) y `/predict_batch` (varios créditos):
+
+    cd mlops_pipeline
+    uvicorn model_deploy:app --port 8000
+
+Abre `http://127.0.0.1:8000/docs` para probarla. Con Docker (desde la carpeta principal):
+
+    docker build -t api-credito .
+    docker run -p 8000:8000 api-credito
+
+## 11. Pruebas y calidad de código
+Pruebas automáticas con pytest (desde la carpeta principal):
+
+    pytest
+
+La configuración de SonarCloud está en `sonar-project.properties`.
+
+## 12. Pendientes
+- Jenkinsfile (punto bono): no se alcanzó a implementar.
+- Reentrenar el modelo con datos recientes, como recomienda el monitoreo.
